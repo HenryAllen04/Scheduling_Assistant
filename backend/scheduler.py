@@ -1,7 +1,24 @@
+from datetime import datetime, timedelta
 from ortools.sat.python import cp_model
-
 from airtable import get_unavailabilty_data
 
+def gen_rota_for_date_range(start_date_str, end_date_str, employee_data, task_data, floors_data):
+    # Convert string dates to datetime.date objects
+    start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+    end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+
+    current_date = start_date
+    while current_date <= end_date:
+        gen_rota_for_date(current_date.strftime("%Y-%m-%d"), employee_data, task_data, floors_data)
+        current_date += timedelta(days=1)
+
+# ToDo: Handle failures
+def gen_rota_for_date(date, employee_data, task_data, floors_data):
+    for floor in floors_data:
+        print(f'*********Generating Rota for {floor}****************')
+        gen_rota_for_floor(date, employee_data, task_data, floors_data, floor)
+
+# ToDo: Cleanup
 def gen_rota_for_floor(date, employee_data, task_data, floors_data, floor):
 
     unavailability_data = get_unavailabilty_data(date)
@@ -91,8 +108,10 @@ def gen_rota_for_floor(date, employee_data, task_data, floors_data, floor):
                     print(assigned_tasks)
                 elif len(assigned_tasks) == 1:
                     assigned_task = assigned_tasks[0]
-                else:
+                elif is_on_break:
                     assigned_task = 'Break'
+                else:
+                    print('********Error*************', 'Unhandled condition')
 
                 records.append({
                     'fields': {
