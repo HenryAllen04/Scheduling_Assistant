@@ -132,6 +132,10 @@ def gen_rota_for_floor(date, employee_data, task_data, floors_data, floor):
                     assigned_task
                 ])
                 print(f'Employee {e} at {t}:00 - Floor: {floor} Task: {assigned_task}')
+    elif status == cp_model.INFEASIBLE:
+        print("No solution found: INFEASIBLE")
+    elif status == cp_model.MODEL_INVALID:
+        print("No solution found: MODEL_INVALID")
     else:
-        print("No solution found.")
+        print("No solution found: UNKNOWN")
     return records, records2
