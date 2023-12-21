@@ -1,8 +1,17 @@
 from flask import Flask, request, jsonify, make_response
 import datetime
 
-from airtable import get_employee_data, get_floor_data, get_task_data, get_rota_for_day, get_rota_for_employee_and_day
-from scheduler import gen_rota_for_date_range, gen_rota_for_date, gen_rota_for_floor
+from airtable import (
+    get_employee_data,
+    get_floor_data,
+    get_task_data,
+    get_rota_for_day,
+    get_rota_for_employee_and_day
+)
+from scheduler import (
+    gen_rota_for_date_range,
+    gen_rota_for_date
+)
 
 app = Flask(__name__)
 
@@ -17,7 +26,7 @@ def generate_rota_for_dates():
     data = request.json
 
     # List of required fields
-    required_keys = ['start_date', 'end_date']
+    required_keys = ['StartDate', 'EndDate']
 
     if not all(key in data for key in required_keys):
         missing_keys = [key for key in required_keys if key not in data]
@@ -33,7 +42,7 @@ def generate_rota_for_dates():
         # task_data = get_task_data()
 
         # Generate Rota
-        # gen_rota_for_date_range(data['start_date'], data['end_date'], employee_data, task_data, floor_data)
+        # gen_rota_for_date_range(data['StartDate'], data['EndDate'], employee_data, task_data, floor_data)
         print('here')
     except:
         return make_response(jsonify({
@@ -57,25 +66,36 @@ def fetch_rota_for_day(date):
             rota = get_rota_for_employee_and_day(date, employee_id)
     except:
         return make_response(jsonify({
-            'error': 'Failed to generate rota for the date range.'
+            'error': 'Failed to fetch the rota for the day.'
         }), 500)
     return rota
 
 # Request timeoff
-@app.route('/timeoff/create', methods=['POST'])
+@app.route('/timeoff/add', methods=['POST'])
 def request_time_off():
     data = request.json
 
+    # List of required fields
+    required_keys = ['EmployeeID', 'StartDate', 'EndDate']
+
+    if not all(key in data for key in required_keys):
+        missing_keys = [key for key in required_keys if key not in data]
+        return make_response(jsonify({
+            'error': 'Missing fields in request data.',
+            'missing_fields': missing_keys
+        }), 400)
     return "Added time-off.\n"
 
-def is_valid_date(date_text):
+# Check if the date string refers to a valid date
+def is_valid_date(date_str):
     try:
-        datetime.date.fromisoformat(date_text)
+        datetime.date.fromisoformat(date_str)
     except ValueError:
         print("Invalid date, please provide a valid date in YYYY-MM-DD format")
         return False
     return True
 
+# Run the app
 if __name__ == '__main__':
 
     # Run Flask app

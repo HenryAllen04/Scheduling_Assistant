@@ -90,6 +90,29 @@ def get_unavailabilty_data(date):
         }
     return unavailability_data
 
+# Add time off to Unavailability table
+def add_time_off(employee_id, start_date, end_date):
+    # Get Unavailability data from airtable
+    global airtable_key
+    unavailability_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Unavailability'
+    headers = {
+        'Authorization': f'Bearer {airtable_key}',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        "records": [
+            {
+            "fields": {
+                "Employee ID": employee_id,
+                "Holiday Start Date": start_date,
+                "Holiday End Date": end_date
+            }
+            }
+        ]
+    }
+    response = requests.post(unavailability_tbl_url, headers=headers, json=data)
+
+
 def get_rota_for_day(date):
     # Get rota data from airtable
     global airtable_key
