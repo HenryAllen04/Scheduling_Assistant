@@ -90,6 +90,85 @@ def get_unavailabilty_data(date):
         }
     return unavailability_data
 
+# Add time off to Unavailability table
+def add_time_off(employee_id, start_date, end_date):
+    # Get Unavailability data from airtable
+    global airtable_key
+    unavailability_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Unavailability'
+    headers = {
+        'Authorization': f'Bearer {airtable_key}',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        "records": [
+            {
+            "fields": {
+                "Employee ID": employee_id,
+                "Holiday Start Date": start_date,
+                "Holiday End Date": end_date
+            }
+            }
+        ]
+    }
+    response = requests.post(unavailability_tbl_url, headers=headers, json=data)
+
+
+def get_rota_for_day(date):
+    # Get rota data from airtable
+    global airtable_key
+    rota_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Rota'
+    headers = {
+        'Authorization': f'Bearer {airtable_key}',
+        'Content-Type': 'application/json'
+    }
+    # Only return rows for which the date is the same as the input date
+    data = {
+        'filterByFormula': "IS_SAME('" + date + "', {Date}, 'day')"
+    }
+    response = requests.post(rota_tbl_url + '/listRecords', headers=headers, json=data)
+
+    # Create a list of records for the day's rota
+    rota = []
+    for record in response.json()['records']:
+        rota.append([
+            record['fields']['Date'],
+            record['fields']['Employee ID'],
+            record['fields']['Employee Name'],
+            record['fields']['Start Time'],
+            record['fields']['End Time'],
+            record['fields']['Floor'],
+            record['fields']['Task']
+        ])
+    return rota
+
+def get_rota_for_employee_and_day(date, employee_id):
+    global airtable_key
+    rota_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Rota'
+    headers = {
+        'Authorization': f'Bearer {airtable_key}',
+        'Content-Type': 'application/json'
+    }
+    # Only return rows for which the date is the same as the input date and the
+    # EmployeeID matches the input id
+    data = {
+        'filterByFormula': "AND(IS_SAME('" + date + "', {Date}, 'day'), " + employee_id + " = {Employee ID})"
+    }
+    response = requests.post(rota_tbl_url + '/listRecords', headers=headers, json=data)
+
+    # Create a list of records for the day's rota
+    rota = []
+    for record in response.json()['records']:
+        rota.append([
+            record['fields']['Date'],
+            record['fields']['Employee ID'],
+            record['fields']['Employee Name'],
+            record['fields']['Start Time'],
+            record['fields']['End Time'],
+            record['fields']['Floor'],
+            record['fields']['Task']
+        ])
+    return rota
+
 def write_to_rota_table(records):
     # Write records to airtable
     global airtable_key
