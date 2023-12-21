@@ -109,7 +109,7 @@ def get_rota_for_day(date):
     for record in response.json()['records']:
         rota.append([
             record['fields']['Date'],
-            record['fields']['EmployeeID'],
+            record['fields']['Employee ID'],
             record['fields']['Employee Name'],
             record['fields']['Start Time'],
             record['fields']['End Time'],
@@ -128,7 +128,7 @@ def get_rota_for_employee_and_day(date, employee_id):
     # Only return rows for which the date is the same as the input date and the
     # EmployeeID matches the input id
     data = {
-        'filterByFormula': "AND(IS_SAME('" + date + "', {Date}, 'day'), '" + employee_id + "' == {Employee ID}"
+        'filterByFormula': "AND(IS_SAME('" + date + "', {Date}, 'day'), " + employee_id + " = {Employee ID})"
     }
     response = requests.post(rota_tbl_url + '/listRecords', headers=headers, json=data)
 
@@ -137,7 +137,7 @@ def get_rota_for_employee_and_day(date, employee_id):
     for record in response.json()['records']:
         rota.append([
             record['fields']['Date'],
-            record['fields']['EmployeeID'],
+            record['fields']['Employee ID'],
             record['fields']['Employee Name'],
             record['fields']['Start Time'],
             record['fields']['End Time'],
