@@ -6,7 +6,9 @@ from airtable import (
     get_floor_data,
     get_task_data,
     get_rota_for_day,
-    get_rota_for_employee_and_day
+    get_rota_for_employee_and_day,
+    add_time_off,
+    get_dates_w_rota_in_range
 )
 from scheduler import (
     gen_rota_for_date_range,
@@ -84,6 +86,17 @@ def request_time_off():
             'error': 'Missing fields in request data.',
             'missing_fields': missing_keys
         }), 400)
+
+    try:
+        add_time_off(data['EmployeeID'], data['StartDate'], data['EndDate'])
+        dates = get_dates_w_rota_in_range(data['StartDate'], data['EndDate'])
+        for date in dates:
+            gen_rota_for_date(date)
+    except:
+        return make_response(jsonify({
+            'error': 'Failed to add time-off.'
+        }), 500)
+
     return "Added time-off.\n"
 
 # Check if the date string refers to a valid date

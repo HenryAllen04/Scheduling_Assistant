@@ -16,6 +16,7 @@ def get_employee_data():
         'Content-Type': 'application/json'
     }
     response = requests.get(employee_tbl_url, headers=headers)
+    response.raise_for_status()
     
     # Create a dict from the response with the employee id as the key
     employee_data = {}
@@ -37,6 +38,7 @@ def get_floor_data():
         'Content-Type': 'application/json'
     }
     response = requests.get(floors_tbl_url, headers=headers)
+    response.raise_for_status()
     
     # Create a dict from the response with the floor name as the key
     floor_data = {}
@@ -57,6 +59,7 @@ def get_task_data():
         'Content-Type': 'application/json'
     }
     response = requests.get(tasks_tbl_url, headers=headers)
+    response.raise_for_status()
     
     # Create a dict from the response with the task name as the key
     task_data = {}
@@ -77,9 +80,10 @@ def get_unavailabilty_data(date):
     }
     # Only return rows for which the date is on or between the start and end dates
     data = {
-        'filterByFormula': "OR(IS_SAME('" + date + "', {Holiday Start Date}, 'day'), AND(IS_AFTER('" + date + "', {Holiday Start Date}), IS_BEFORE('" + date + "', {Holiday End Date})), IS_SAME('" + date + "', {Holiday End Date}, 'day'))"
+        'filterByFormula': f"OR(IS_SAME('{date}', {{Holiday Start Date}}, 'day'), AND(IS_AFTER('{date}', {{Holiday Start Date}}), IS_BEFORE('{date}', {{Holiday End Date}})), IS_SAME('{date}', {{Holiday End Date}}, 'day'))"
     }
     response = requests.post(unavailability_tbl_url + '/listRecords', headers=headers, json=data)
+    response.raise_for_status()
 
     # Create a dict from the response with the floor name as the key
     unavailability_data = {}
@@ -111,6 +115,7 @@ def add_time_off(employee_id, start_date, end_date):
         ]
     }
     response = requests.post(unavailability_tbl_url, headers=headers, json=data)
+    response.raise_for_status()
 
 
 def get_rota_for_day(date):
@@ -123,9 +128,10 @@ def get_rota_for_day(date):
     }
     # Only return rows for which the date is the same as the input date
     data = {
-        'filterByFormula': "IS_SAME('" + date + "', {Date}, 'day')"
+        'filterByFormula': f"IS_SAME('{date}', {{Date}}, 'day')"
     }
     response = requests.post(rota_tbl_url + '/listRecords', headers=headers, json=data)
+    response.raise_for_status()
 
     # Create a list of records for the day's rota
     rota = []
@@ -151,9 +157,10 @@ def get_rota_for_employee_and_day(date, employee_id):
     # Only return rows for which the date is the same as the input date and the
     # EmployeeID matches the input id
     data = {
-        'filterByFormula': "AND(IS_SAME('" + date + "', {Date}, 'day'), " + employee_id + " = {Employee ID})"
+        'filterByFormula': f"AND(IS_SAME('{date}', {{Date}}, 'day'), {employee_id}={{Employee ID}})"
     }
     response = requests.post(rota_tbl_url + '/listRecords', headers=headers, json=data)
+    response.raise_for_status()
 
     # Create a list of records for the day's rota
     rota = []
@@ -168,6 +175,26 @@ def get_rota_for_employee_and_day(date, employee_id):
             record['fields']['Task']
         ])
     return rota
+
+def get_dates_w_rota_in_range(start_date, end_date):
+    global airtable_key
+    rota_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Rota'
+    headers = {
+        'Authorization': f'Bearer {airtable_key}',
+        'Content-Type': 'application/json'
+    }
+    # Only return rows for which the date is on or between the start and end dates
+    data = {
+        'filterByFormula': f"OR(IS_SAME('{start_date}', {{Date}}, 'day'), AND(IS_AFTER({{Date}}, '{start_date}'), IS_BEFORE({{Date}}, '{end_date}')), IS_SAME('{end_date}', {{Date}}, 'day'))"
+    }
+    response = requests.post(rota_tbl_url + '/listRecords', headers=headers, json=data)
+    response.raise_for_status()
+
+    # Create a set with the unique dates in the response
+    records = response.json().get('records', [])
+    dates = {record['fields']['Date'] for record in records}
+    return dates
+
 
 def write_to_rota_table(records):
     # Write records to airtable
