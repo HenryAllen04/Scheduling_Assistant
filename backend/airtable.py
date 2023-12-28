@@ -130,12 +130,24 @@ def get_rota_for_day(date):
     data = {
         'filterByFormula': f"IS_SAME('{date}', {{Date}}, 'day')"
     }
-    response = requests.post(rota_tbl_url + '/listRecords', headers=headers, json=data)
-    response.raise_for_status()
+
+    # Get all records from the table making multiple calls to Airtable if required
+    records = []
+    run = True
+    while run:
+        response = requests.post(rota_tbl_url + '/listRecords', headers=headers, json=data)
+        response.raise_for_status()
+        records.extend(response.json().get('records', []))
+
+        offset = response.json().get('offset')
+        if offset:
+            data['offset'] = offset
+        else:
+            run = False
 
     # Create a list of records for the day's rota
     rota = []
-    for record in response.json()['records']:
+    for record in records:
         rota.append([
             record['fields']['Date'],
             record['fields']['Employee ID'],
