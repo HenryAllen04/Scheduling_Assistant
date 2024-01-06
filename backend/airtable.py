@@ -1,16 +1,20 @@
 import os
 import requests
 from dotenv import load_dotenv
+import time
 
 load_dotenv()
 airtable_key = os.getenv('AIRTABLE_KEY')
+employee_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Employee'
+floors_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Floors'
+tasks_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Tasks'
+unavailability_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Unavailability'
+rota_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Rota'
 
 # Get Employee data
 def get_employee_data():
     # Get all employee data from Airtable
     # ToDo: Add pagination
-    global airtable_key
-    employee_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Employee'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
@@ -31,8 +35,6 @@ def get_employee_data():
 # Get Floor data
 def get_floor_data():
     # Get floor data from airtable
-    global airtable_key
-    floors_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Floors'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
@@ -52,8 +54,6 @@ def get_floor_data():
 # Get Task data
 def get_task_data():
     # Get task data from airtable
-    global airtable_key
-    tasks_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Tasks'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
@@ -72,8 +72,6 @@ def get_task_data():
 # Get Unavailability info for a specific data
 def get_unavailabilty_data(date):
     # Get Unavailability data from airtable
-    global airtable_key
-    unavailability_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Unavailability'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
@@ -97,8 +95,6 @@ def get_unavailabilty_data(date):
 # Add time off to Unavailability table
 def add_time_off(employee_id, start_date, end_date):
     # Get Unavailability data from airtable
-    global airtable_key
-    unavailability_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Unavailability'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
@@ -120,8 +116,6 @@ def add_time_off(employee_id, start_date, end_date):
 
 def get_rota_for_day(date):
     # Get rota data from airtable
-    global airtable_key
-    rota_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Rota'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
@@ -160,8 +154,6 @@ def get_rota_for_day(date):
     return rota
 
 def get_rota_for_employee_and_day(date, employee_id):
-    global airtable_key
-    rota_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Rota'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
@@ -189,8 +181,6 @@ def get_rota_for_employee_and_day(date, employee_id):
     return rota
 
 def get_dates_w_rota_in_range(start_date, end_date):
-    global airtable_key
-    rota_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Rota'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
@@ -207,10 +197,74 @@ def get_dates_w_rota_in_range(start_date, end_date):
     dates = {record['fields']['Date'] for record in records}
     return dates
 
+def get_all_rota_record_ids():
+    headers = {
+        'Authorization': f'Bearer {airtable_key}',
+        'Content-Type': 'application/json'
+    }
+    record_ids = []
+    params = {}
+    while True:
+        response = requests.get(rota_tbl_url, headers=headers, params=params)
+        response.raise_for_status()
+
+        data = response.json()
+        records = data.get('records', [])
+        record_ids.extend([record['id'] for record in records])
+
+        offset = data.get('offset')
+        if not offset:
+            break
+        params['offset'] = offset
+        time.sleep(0.25) # Handle rate limit of 5 requests per second + buffer
+    return record_ids
+
+def get_rota_record_ids_for_day(date):
+    headers = {
+        'Authorization': f'Bearer {airtable_key}',
+        'Content-Type': 'application/json'
+    }
+    record_ids = []
+    params = {
+        'filterByFormula': f"IS_SAME('{date}', {{Date}}, 'day')"
+    }
+    while True:
+        response = requests.post(rota_tbl_url + '/listRecords', headers=headers, json=params)
+        response.raise_for_status()
+
+        data = response.json()
+        records = data.get('records', [])
+        record_ids.extend([record['id'] for record in records])
+
+        offset = data.get('offset')
+        if not offset:
+            break
+        params['offset'] = offset
+        time.sleep(0.25) # Handle rate limit of 5 requests per second + buffer
+    return record_ids
+
+def delete_rota_records(record_ids):
+    headers = {
+        'Authorization': f'Bearer {airtable_key}'
+    }
+    for i in range(0, len(record_ids), 10):
+        batch = record_ids[i:i + 10]
+        query = "&".join([f"records[]={record_id}" for record_id in batch])
+        url = f"{rota_tbl_url}?{query}"
+        response = requests.delete(url, headers=headers)
+        response.raise_for_status()
+        time.sleep(0.25) # Handle rate limit of 5 requests per second + buffer
 
 def write_to_rota_table(records):
     # Write records to airtable
-    global airtable_key
-    rota_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Rota'
+    headers = {
+        'Authorization': f'Bearer {airtable_key}',
+        'Content-Type': 'application/json'
+    }
 
-    print("Todo: Write to airtable")
+    for i in range(0, len(records), 10):
+        batch = records[i:i + 10]
+        data = {'records': batch}
+        response = requests.post(rota_tbl_url, headers=headers, json=data)
+        response.raise_for_status()
+        time.sleep(0.25) # Handle rate limit of 5 requests per second + buffer

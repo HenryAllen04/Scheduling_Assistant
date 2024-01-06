@@ -2,13 +2,16 @@ from flask import Flask, request, jsonify, make_response
 import datetime
 
 from airtable import (
+    add_time_off,
     get_employee_data,
     get_floor_data,
     get_task_data,
     get_rota_for_day,
     get_rota_for_employee_and_day,
-    add_time_off,
-    get_dates_w_rota_in_range
+    get_dates_w_rota_in_range,
+    get_rota_record_ids_for_day,
+    delete_rota_records,
+    write_to_rota_table
 )
 from scheduler import (
     gen_rota_for_date_range,
@@ -39,13 +42,12 @@ def generate_rota_for_dates():
     
     try:
         # Fetch required data
-        # employee_data = get_employee_data()
-        # floor_data = get_floor_data()
-        # task_data = get_task_data()
+        employee_data = get_employee_data()
+        floor_data = get_floor_data()
+        task_data = get_task_data()
 
         # Generate Rota
-        # gen_rota_for_date_range(data['StartDate'], data['EndDate'], employee_data, task_data, floor_data)
-        print('here')
+        gen_rota_for_date_range(data['StartDate'], data['EndDate'], employee_data, task_data, floor_data)
     except:
         return make_response(jsonify({
             'error': 'Failed to generate rota for the date range.'
@@ -87,14 +89,29 @@ def request_time_off():
             'missing_fields': missing_keys
         }), 400)
 
+    if not (is_valid_date(data['StartDate']) and is_valid_date(data['EndDate'])):
+        return make_response(jsonify({
+            'error': 'Invalid date, please provide valid dates in YYYY-MM-DD format.'
+        }), 400)
     try:
         add_time_off(data['EmployeeID'], data['StartDate'], data['EndDate'])
         dates = get_dates_w_rota_in_range(data['StartDate'], data['EndDate'])
-        for date in dates:
-            gen_rota_for_date(date)
     except:
         return make_response(jsonify({
             'error': 'Failed to add time-off.'
+        }), 500)
+    try:
+        for date in dates:
+            employee_data = get_employee_data()
+            floor_data = get_floor_data()
+            task_data = get_task_data()
+            records = gen_rota_for_date(date, employee_data, task_data, floor_data)
+            record_ids = get_rota_record_ids_for_day(date)
+            delete_rota_records(record_ids)
+            write_to_rota_table(records)
+    except:
+        return make_response(jsonify({
+            'error': f'Failed to generate rota with time-off for {date}.'
         }), 500)
 
     return "Added time-off.\n"

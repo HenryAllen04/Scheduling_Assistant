@@ -1,6 +1,11 @@
 from datetime import datetime, timedelta
 from ortools.sat.python import cp_model
-from airtable import get_unavailabilty_data
+from airtable import (
+    get_rota_record_ids_for_day,
+    get_unavailabilty_data,
+    delete_rota_records,
+    write_to_rota_table
+)
 
 def gen_rota_for_date_range(start_date_str, end_date_str, employee_data, task_data, floors_data):
     # Convert string dates to datetime.date objects
@@ -9,14 +14,21 @@ def gen_rota_for_date_range(start_date_str, end_date_str, employee_data, task_da
 
     current_date = start_date
     while current_date <= end_date:
-        gen_rota_for_date(current_date.strftime("%Y-%m-%d"), employee_data, task_data, floors_data)
+        print(f'---------Generating Rota for {current_date.strftime("%Y-%m-%d")}------------------')
+        records = gen_rota_for_date(current_date.strftime("%Y-%m-%d"), employee_data, task_data, floors_data)
+        record_ids = get_rota_record_ids_for_day(current_date.strftime("%Y-%m-%d"))
+        delete_rota_records(record_ids)
+        write_to_rota_table(records)
         current_date += timedelta(days=1)
 
 # ToDo: Handle failures
 def gen_rota_for_date(date, employee_data, task_data, floors_data):
+    records = []
     for floor in floors_data:
         print(f'*********Generating Rota for {floor}****************')
-        gen_rota_for_floor(date, employee_data, task_data, floors_data, floor)
+        floor_records = gen_rota_for_floor(date, employee_data, task_data, floors_data, floor)
+        records.extend(floor_records)
+    return records
 
 # ToDo: Cleanup
 def gen_rota_for_floor(date, employee_data, task_data, floors_data, floor):
@@ -86,7 +98,6 @@ def gen_rota_for_floor(date, employee_data, task_data, floors_data, floor):
 
     # Extracting and displaying the solution
     records = []
-    records2 = []
     if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
         for e in employees:
             for t in range(9, 17):
@@ -115,27 +126,20 @@ def gen_rota_for_floor(date, employee_data, task_data, floors_data, floor):
 
                 records.append({
                     'fields': {
+                        'Date': date,
                         'Employee ID': e,
                         'Employee Name': employees[e]['Name'],
-                        'Time Slot': f'{t}:00 - {t+1}:00',
+                        'Start Time': f'{t}:00',
+                        'End Time': f'{t+1}:00',
                         'Floor': floor,
                         'Task': assigned_task
                     }
                 })
-                records2.append([
-                    date,
-                    e,
-                    employees[e]['Name'],
-                    f'{t}:00',
-                    f'{t+1}:00',
-                    floor,
-                    assigned_task
-                ])
-                print(f'Employee {e} at {t}:00 - Floor: {floor} Task: {assigned_task}')
+                # print(f'Employee {e} at {t}:00 - Floor: {floor} Task: {assigned_task}')
     elif status == cp_model.INFEASIBLE:
         print("No solution found: INFEASIBLE")
     elif status == cp_model.MODEL_INVALID:
         print("No solution found: MODEL_INVALID")
     else:
         print("No solution found: UNKNOWN")
-    return records, records2
+    return records
