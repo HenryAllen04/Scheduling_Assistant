@@ -23,7 +23,7 @@ app = Flask(__name__)
 # Home endpoint
 @app.route('/')
 def home():
-    return "Welcome to the Scheduler App!"
+    return "Welcome to the Scheduler App!\n"
 
 # Generate Rota for time frame
 @app.route('/rota/generate', methods=['POST'])
@@ -94,6 +94,7 @@ def request_time_off():
             'error': 'Invalid date, please provide valid dates in YYYY-MM-DD format.'
         }), 400)
     try:
+        print(f"---------Adding time-off for EmployeeID: {data['EmployeeID']} from {data['StartDate']} to {data['EndDate']}------------------")
         add_time_off(data['EmployeeID'], data['StartDate'], data['EndDate'])
         dates = get_dates_w_rota_in_range(data['StartDate'], data['EndDate'])
     except:
@@ -101,14 +102,18 @@ def request_time_off():
             'error': 'Failed to add time-off.'
         }), 500)
     try:
+        employee_data = get_employee_data()
+        floor_data = get_floor_data()
+        task_data = get_task_data()
         for date in dates:
-            employee_data = get_employee_data()
-            floor_data = get_floor_data()
-            task_data = get_task_data()
+            print(f'---------Generating Rota for {date}------------------')
             records = gen_rota_for_date(date, employee_data, task_data, floor_data)
+            print(f'---------Deleting existing Rota records if any for {date}------------------')
             record_ids = get_rota_record_ids_for_day(date)
             delete_rota_records(record_ids)
+            print(f'---------Writing new Rota records for {date}------------------')
             write_to_rota_table(records)
+            print(f'---------Generating Rota for {date} complete------------------')
     except:
         return make_response(jsonify({
             'error': f'Failed to generate rota with time-off for {date}.'

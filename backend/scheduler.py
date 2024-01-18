@@ -16,9 +16,12 @@ def gen_rota_for_date_range(start_date_str, end_date_str, employee_data, task_da
     while current_date <= end_date:
         print(f'---------Generating Rota for {current_date.strftime("%Y-%m-%d")}------------------')
         records = gen_rota_for_date(current_date.strftime("%Y-%m-%d"), employee_data, task_data, floors_data)
+        print(f'---------Deleting existing Rota records if any for {current_date.strftime("%Y-%m-%d")}------------------')
         record_ids = get_rota_record_ids_for_day(current_date.strftime("%Y-%m-%d"))
         delete_rota_records(record_ids)
+        print(f'---------Writing new Rota records for {current_date.strftime("%Y-%m-%d")}------------------')
         write_to_rota_table(records)
+        print(f'---------Generating Rota for {current_date.strftime("%Y-%m-%d")} complete------------------')
         current_date += timedelta(days=1)
 
 # ToDo: Handle failures
