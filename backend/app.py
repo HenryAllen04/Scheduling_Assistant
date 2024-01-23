@@ -66,8 +66,11 @@ def fetch_rota_for_day(date):
         employee_id = request.args.get('EmployeeID')
         if not employee_id:
             rota = get_rota_for_day(date)
+            
         else:
             rota = get_rota_for_employee_and_day(date, employee_id)
+            #adding ascending sort for schedule formatting, based on End time "[4]"
+            rota = sorted(rota, key=lambda x: x[4])
     except:
         return make_response(jsonify({
             'error': 'Failed to fetch the rota for the day.'
