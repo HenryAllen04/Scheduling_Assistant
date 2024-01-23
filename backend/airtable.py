@@ -70,7 +70,7 @@ def get_task_data():
     return task_data
 
 # Get Unavailability info for a specific data
-def get_unavailabilty_data(date):
+def get_unavailability_data(date):
     # Get Unavailability data from airtable
     headers = {
         'Authorization': f'Bearer {airtable_key}',
