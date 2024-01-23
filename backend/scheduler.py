@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from ortools.sat.python import cp_model
 from airtable import (
     get_rota_record_ids_for_day,
-    get_unavailabilty_data,
+    get_unavailability_data,
     delete_rota_records,
     write_to_rota_table
 )
@@ -36,7 +36,7 @@ def gen_rota_for_date(date, employee_data, task_data, floors_data):
 # ToDo: Cleanup
 def gen_rota_for_floor(date, employee_data, task_data, floors_data, floor):
 
-    unavailability_data = get_unavailabilty_data(date)
+    unavailability_data = get_unavailability_data(date)
 
     employees = {}
     for e in employee_data:
