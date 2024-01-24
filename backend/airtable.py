@@ -1,21 +1,26 @@
 import os
 import requests
 from dotenv import load_dotenv
+import time
 
 load_dotenv()
 airtable_key = os.getenv('AIRTABLE_KEY')
+employee_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Employee'
+floors_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Floors'
+tasks_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Tasks'
+unavailability_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Unavailability'
+rota_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Rota'
 
 # Get Employee data
 def get_employee_data():
     # Get all employee data from Airtable
     # ToDo: Add pagination
-    global airtable_key
-    employee_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Employee'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
     }
     response = requests.get(employee_tbl_url, headers=headers)
+    response.raise_for_status()
     
     # Create a dict from the response with the employee id as the key
     employee_data = {}
@@ -30,13 +35,12 @@ def get_employee_data():
 # Get Floor data
 def get_floor_data():
     # Get floor data from airtable
-    global airtable_key
-    floors_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Floors'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
     }
     response = requests.get(floors_tbl_url, headers=headers)
+    response.raise_for_status()
     
     # Create a dict from the response with the floor name as the key
     floor_data = {}
@@ -50,13 +54,12 @@ def get_floor_data():
 # Get Task data
 def get_task_data():
     # Get task data from airtable
-    global airtable_key
-    tasks_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Tasks'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
     }
     response = requests.get(tasks_tbl_url, headers=headers)
+    response.raise_for_status()
     
     # Create a dict from the response with the task name as the key
     task_data = {}
@@ -67,19 +70,18 @@ def get_task_data():
     return task_data
 
 # Get Unavailability info for a specific data
-def get_unavailabilty_data(date):
+def get_unavailability_data(date):
     # Get Unavailability data from airtable
-    global airtable_key
-    unavailability_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Unavailability'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
     }
     # Only return rows for which the date is on or between the start and end dates
     data = {
-        'filterByFormula': "OR(IS_SAME('" + date + "', {Holiday Start Date}, 'day'), AND(IS_AFTER('" + date + "', {Holiday Start Date}), IS_BEFORE('" + date + "', {Holiday End Date})), IS_SAME('" + date + "', {Holiday End Date}, 'day'))"
+        'filterByFormula': f"OR(IS_SAME('{date}', {{Holiday Start Date}}, 'day'), AND(IS_AFTER('{date}', {{Holiday Start Date}}), IS_BEFORE('{date}', {{Holiday End Date}})), IS_SAME('{date}', {{Holiday End Date}}, 'day'))"
     }
     response = requests.post(unavailability_tbl_url + '/listRecords', headers=headers, json=data)
+    response.raise_for_status()
 
     # Create a dict from the response with the floor name as the key
     unavailability_data = {}
@@ -93,8 +95,6 @@ def get_unavailabilty_data(date):
 # Add time off to Unavailability table
 def add_time_off(employee_id, start_date, end_date):
     # Get Unavailability data from airtable
-    global airtable_key
-    unavailability_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Unavailability'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
@@ -111,25 +111,37 @@ def add_time_off(employee_id, start_date, end_date):
         ]
     }
     response = requests.post(unavailability_tbl_url, headers=headers, json=data)
+    response.raise_for_status()
 
 
 def get_rota_for_day(date):
     # Get rota data from airtable
-    global airtable_key
-    rota_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Rota'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
     }
     # Only return rows for which the date is the same as the input date
     data = {
-        'filterByFormula': "IS_SAME('" + date + "', {Date}, 'day')"
+        'filterByFormula': f"IS_SAME('{date}', {{Date}}, 'day')"
     }
-    response = requests.post(rota_tbl_url + '/listRecords', headers=headers, json=data)
+
+    # Get all records from the table making multiple calls to Airtable if required
+    records = []
+    run = True
+    while run:
+        response = requests.post(rota_tbl_url + '/listRecords', headers=headers, json=data)
+        response.raise_for_status()
+        records.extend(response.json().get('records', []))
+
+        offset = response.json().get('offset')
+        if offset:
+            data['offset'] = offset
+        else:
+            run = False
 
     # Create a list of records for the day's rota
     rota = []
-    for record in response.json()['records']:
+    for record in records:
         rota.append([
             record['fields']['Date'],
             record['fields']['Employee ID'],
@@ -142,8 +154,6 @@ def get_rota_for_day(date):
     return rota
 
 def get_rota_for_employee_and_day(date, employee_id):
-    global airtable_key
-    rota_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Rota'
     headers = {
         'Authorization': f'Bearer {airtable_key}',
         'Content-Type': 'application/json'
@@ -151,9 +161,10 @@ def get_rota_for_employee_and_day(date, employee_id):
     # Only return rows for which the date is the same as the input date and the
     # EmployeeID matches the input id
     data = {
-        'filterByFormula': "AND(IS_SAME('" + date + "', {Date}, 'day'), " + employee_id + " = {Employee ID})"
+        'filterByFormula': f"AND(IS_SAME('{date}', {{Date}}, 'day'), {employee_id}={{Employee ID}})"
     }
     response = requests.post(rota_tbl_url + '/listRecords', headers=headers, json=data)
+    response.raise_for_status()
 
     # Create a list of records for the day's rota
     rota = []
@@ -169,9 +180,91 @@ def get_rota_for_employee_and_day(date, employee_id):
         ])
     return rota
 
+def get_dates_w_rota_in_range(start_date, end_date):
+    headers = {
+        'Authorization': f'Bearer {airtable_key}',
+        'Content-Type': 'application/json'
+    }
+    # Only return rows for which the date is on or between the start and end dates
+    data = {
+        'filterByFormula': f"OR(IS_SAME('{start_date}', {{Date}}, 'day'), AND(IS_AFTER({{Date}}, '{start_date}'), IS_BEFORE({{Date}}, '{end_date}')), IS_SAME('{end_date}', {{Date}}, 'day'))"
+    }
+    response = requests.post(rota_tbl_url + '/listRecords', headers=headers, json=data)
+    response.raise_for_status()
+
+    # Create a set with the unique dates in the response
+    records = response.json().get('records', [])
+    dates = {record['fields']['Date'] for record in records}
+    return dates
+
+def get_all_rota_record_ids():
+    headers = {
+        'Authorization': f'Bearer {airtable_key}',
+        'Content-Type': 'application/json'
+    }
+    record_ids = []
+    params = {}
+    while True:
+        response = requests.get(rota_tbl_url, headers=headers, params=params)
+        response.raise_for_status()
+
+        data = response.json()
+        records = data.get('records', [])
+        record_ids.extend([record['id'] for record in records])
+
+        offset = data.get('offset')
+        if not offset:
+            break
+        params['offset'] = offset
+        time.sleep(0.25) # Handle rate limit of 5 requests per second + buffer
+    return record_ids
+
+def get_rota_record_ids_for_day(date):
+    headers = {
+        'Authorization': f'Bearer {airtable_key}',
+        'Content-Type': 'application/json'
+    }
+    record_ids = []
+    params = {
+        'filterByFormula': f"IS_SAME('{date}', {{Date}}, 'day')"
+    }
+    while True:
+        response = requests.post(rota_tbl_url + '/listRecords', headers=headers, json=params)
+        response.raise_for_status()
+
+        data = response.json()
+        records = data.get('records', [])
+        record_ids.extend([record['id'] for record in records])
+
+        offset = data.get('offset')
+        if not offset:
+            break
+        params['offset'] = offset
+        time.sleep(0.25) # Handle rate limit of 5 requests per second + buffer
+    return record_ids
+
+def delete_rota_records(record_ids):
+    headers = {
+        'Authorization': f'Bearer {airtable_key}'
+    }
+    for i in range(0, len(record_ids), 10):
+        batch = record_ids[i:i + 10]
+        query = "&".join([f"records[]={record_id}" for record_id in batch])
+        url = f"{rota_tbl_url}?{query}"
+        response = requests.delete(url, headers=headers)
+        response.raise_for_status()
+        time.sleep(0.25) # Handle rate limit of 5 requests per second + buffer
+
 def write_to_rota_table(records):
     # Write records to airtable
-    global airtable_key
-    rota_tbl_url = 'https://api.airtable.com/v0/appLwrU5u2KrHXkAd/Rota'
+    headers = {
+        'Authorization': f'Bearer {airtable_key}',
+        'Content-Type': 'application/json'
+    }
 
-    print("Todo: Write to airtable")
+    for i in range(0, len(records), 10):
+        batch = records[i:i + 10]
+        data = {'records': batch}
+        response = requests.post(rota_tbl_url, headers=headers, json=data)
+        response.raise_for_status()
+        time.sleep(0.25) # Handle rate limit of 5 requests per second + buffer
